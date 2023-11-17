@@ -3,6 +3,7 @@ use std::net::{IpAddr, SocketAddr, UdpSocket};
 use crate::{constants::QueryType, decoder::Decoder, message::Message};
 
 mod constants;
+mod domain;
 mod header;
 mod message;
 mod query;
