@@ -1,10 +1,16 @@
-use crate::{header::Header, query::Query, rr::ResponseRecord};
+use crate::{decoder::Decoder, header::Header, query::Query, rr::ResponseRecord};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Message {
-    pub(crate) header: Header,
-    pub(crate) question: Query,
-    pub(crate) answer: Vec<ResponseRecord>,
-    pub(crate) authority: Vec<ResponseRecord>,
-    pub(crate) additional: Vec<ResponseRecord>,
+pub struct Message {
+    header: Header,
+    question: Query,
+    answer: Vec<ResponseRecord>,
+    authority: Vec<ResponseRecord>,
+    additional: Vec<ResponseRecord>,
+}
+
+impl Message {
+    pub(crate) fn from_bytes(_decoder: Decoder) -> Result<Self, ()> {
+        Err(())
+    }
 }

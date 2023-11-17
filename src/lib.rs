@@ -1,6 +1,6 @@
 use std::net::{IpAddr, SocketAddr, UdpSocket};
 
-use crate::constants::QueryType;
+use crate::{constants::QueryType, message::Message, decoder::Decoder};
 
 mod constants;
 mod header;
@@ -8,8 +8,9 @@ mod message;
 mod query;
 mod rr;
 
-pub fn send_query(domain: &str, name_server: IpAddr) -> [u8; 512] {
 mod decoder;
+
+pub fn send_query(domain: &str, name_server: IpAddr) -> Result<Message, ()> {
     let socket = UdpSocket::bind("0.0.0.0:0").expect("Couldn't bind to a random UDP address.");
     let query = query::build_query(rand::random(), QueryType::A, domain);
 
@@ -21,14 +22,17 @@ mod decoder;
     let (bytes_recv, _) = socket
         .recv_from(&mut buf)
         .expect("Received a valid response from name server.");
+
     assert!(bytes_recv < 512);
-    buf
+
+    let decoder = Decoder::new(buf.as_slice());
+
+    Message::from_bytes(decoder)
 }
 
 #[ignore]
 #[test]
 fn example_com() {
     let resp = send_query("www.example.com", "8.8.8.8".parse().unwrap());
-    assert!(!resp.is_empty());
-    panic!("{resp:?}");
+    assert!(resp.is_ok());
 }
