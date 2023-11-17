@@ -35,6 +35,31 @@ pub enum ResponseType {
     ///  text strings
     TXT = 16,
 }
+impl TryFrom<u16> for ResponseType {
+    type Error = ();
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(Self::A),
+            2 => Ok(Self::NS),
+            3 => Ok(Self::MD),
+            4 => Ok(Self::MF),
+            5 => Ok(Self::CNAME),
+            6 => Ok(Self::SOA),
+            7 => Ok(Self::MB),
+            8 => Ok(Self::MG),
+            9 => Ok(Self::MR),
+            10 => Ok(Self::NULL),
+            11 => Ok(Self::WKS),
+            12 => Ok(Self::PTR),
+            13 => Ok(Self::HINFO),
+            14 => Ok(Self::MINFO),
+            15 => Ok(Self::MX),
+            16 => Ok(Self::TXT),
+            _ => Err(()),
+        }
+    }
+}
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResponseClass {
     /// The Internet
@@ -46,6 +71,20 @@ pub enum ResponseClass {
     /// Hesiod [Dyer 87]
     HS = 4,
 }
+impl TryFrom<u16> for ResponseClass {
+    type Error = ();
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(Self::IN),
+            2 => Ok(Self::CS),
+            3 => Ok(Self::CH),
+            4 => Ok(Self::HS),
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QueryType {
     /// a host address
