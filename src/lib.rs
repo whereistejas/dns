@@ -9,6 +9,7 @@ mod query;
 mod rr;
 
 pub fn send_query(domain: &str, name_server: IpAddr) -> [u8; 512] {
+mod decoder;
     let socket = UdpSocket::bind("0.0.0.0:0").expect("Couldn't bind to a random UDP address.");
     let query = query::build_query(rand::random(), QueryType::A, domain);
 
