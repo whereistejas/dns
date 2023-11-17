@@ -9,22 +9,25 @@ pub struct Message {
     additional: Vec<ResponseRecord>,
 }
 
+// TODO: Create a global Result type in lib.rs
+type ResultVec = Result<Vec<ResponseRecord>, ()>;
+
 impl Message {
     pub(crate) fn from_bytes(mut decoder: Decoder) -> Result<Self, ()> {
         let header = Header::from_bytes(&mut decoder)?;
         let question = Query::from_bytes(&mut decoder)?;
 
         let answer = (0..header.an_count)
-            .map(|_| ResponseRecord::from_bytes(&mut decoder)?)
-            .collect();
+            .map(|_| ResponseRecord::from_bytes(&mut decoder))
+            .collect::<ResultVec>()?;
 
         let authority = (0..header.ns_count)
-            .map(|_| ResponseRecord::from_bytes(&mut decoder)?)
-            .collect();
+            .map(|_| ResponseRecord::from_bytes(&mut decoder))
+            .collect::<ResultVec>()?;
 
         let additional = (0..header.ad_count)
-            .map(|_| ResponseRecord::from_bytes(&mut decoder)?)
-            .collect();
+            .map(|_| ResponseRecord::from_bytes(&mut decoder))
+            .collect::<ResultVec>()?;
 
         Ok(Self {
             header,
