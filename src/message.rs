@@ -11,12 +11,27 @@ pub struct Message {
 
 impl Message {
     pub(crate) fn from_bytes(mut decoder: Decoder) -> Result<Self, ()> {
+        let header = Header::from_bytes(&mut decoder)?;
+        let question = Query::from_bytes(&mut decoder)?;
+
+        let answer = (0..header.an_count)
+            .map(|_| ResponseRecord::from_bytes(&mut decoder)?)
+            .collect();
+
+        let authority = (0..header.ns_count)
+            .map(|_| ResponseRecord::from_bytes(&mut decoder)?)
+            .collect();
+
+        let additional = (0..header.ad_count)
+            .map(|_| ResponseRecord::from_bytes(&mut decoder)?)
+            .collect();
+
         Ok(Self {
-            header: Header::from_bytes(&mut decoder)?,
-            question: Query::from_bytes(&mut decoder)?,
-            answer: todo!(),
-            authority: todo!(),
-            additional: todo!(),
+            header,
+            question,
+            answer,
+            authority,
+            additional,
         })
     }
 }

@@ -11,3 +11,8 @@ pub(crate) struct ResponseRecord {
     pub(crate) rd_length: u16,
     pub(crate) rdata: ArrayVec<u8, 249>,
 }
+impl ResponseRecord {
+    pub(crate) fn from_bytes(decoder: &mut crate::decoder::Decoder<'_>) -> _ {
+        todo!()
+    }
+}
