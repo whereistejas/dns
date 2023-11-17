@@ -4,7 +4,9 @@ use crate::constants::QueryType;
 
 mod constants;
 mod header;
+mod message;
 mod query;
+mod rr;
 
 pub fn send_query(domain: &str, name_server: IpAddr) -> [u8; 512] {
     let socket = UdpSocket::bind("0.0.0.0:0").expect("Couldn't bind to a random UDP address.");
