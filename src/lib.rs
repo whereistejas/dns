@@ -1,6 +1,6 @@
 use std::net::{IpAddr, SocketAddr, UdpSocket};
 
-use crate::{constants::QueryType, message::Message, decoder::Decoder};
+use crate::{constants::QueryType, decoder::Decoder, message::Message};
 
 mod constants;
 mod header;
@@ -30,9 +30,3 @@ pub fn send_query(domain: &str, name_server: IpAddr) -> Result<Message, ()> {
     Message::from_bytes(decoder)
 }
 
-#[ignore]
-#[test]
-fn example_com() {
-    let resp = send_query("www.example.com", "8.8.8.8".parse().unwrap());
-    assert!(resp.is_ok());
-}
