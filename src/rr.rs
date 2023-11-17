@@ -1,20 +1,34 @@
-use arrayvec::ArrayVec;
-
-use crate::constants::{ResponseClass, ResponseType};
+use crate::{
+    constants::{ResponseClass, ResponseType},
+    decoder::Decoder,
+    domain::Domain,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ResponseRecord {
-    pub(crate) name: ArrayVec<u8, 255>,
-    pub(crate) type_: ResponseType,
-    pub(crate) class: ResponseClass,
-    pub(crate) ttl: u32,
-    pub(crate) rd_length: u16,
+    name: Domain,
+    type_: ResponseType,
+    class: ResponseClass,
+    ttl: u32,
+    rd_length: u16,
     rdata: RData,
 }
+
 impl ResponseRecord {
-    pub(crate) fn from_bytes(decoder: &mut crate::decoder::Decoder<'_>) -> _ {
-        todo!()
+    pub(crate) fn from_bytes(decoder: &mut Decoder) -> Result<Self, ()> {
+        let name = Domain::from_bytes(decoder)?;
+        let type_ = decoder.read_u16().try_into().unwrap();
+        let class = decoder.read_u16().try_into().unwrap();
+        Ok(Self {
+            name,
+            type_,
+            class,
+            ttl: decoder.read_u32(),
+            rd_length: decoder.read_u16(),
             rdata: RData::from_bytes(type_, class, decoder)?,
+        })
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum RData {
