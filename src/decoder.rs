@@ -45,4 +45,12 @@ impl<'a> Decoder<'a> {
         let s = self.read_slice(4);
         u32::from_be_bytes([s[0], s[1], s[2], s[3]])
     }
+    pub fn clone_at_index(&self, index: usize) -> Self {
+        assert!(index < self.buffer.len());
+
+        Self {
+            buffer: self.buffer,
+            remaining: &self.buffer[index..],
+        }
+    }
 }

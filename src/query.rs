@@ -2,6 +2,7 @@ use arrayvec::ArrayVec;
 
 use crate::{
     constants::{QueryClass, QueryType},
+    decoder::Decoder,
     header::Header,
 };
 
@@ -26,27 +27,54 @@ impl Query {
 
         bytes
     }
-}
 
-fn encode_domain(domain: &str) -> ArrayVec<u8, 255> {
-    domain
-        .split('.')
-        .flat_map(|part| {
-            let mut label = ArrayVec::<_, 63>::new();
-            label.push(u8::try_from(part.len()).unwrap());
-            label.try_extend_from_slice(part.as_bytes()).unwrap();
-            label
+    pub(crate) fn from_bytes(decoder: &mut Decoder) -> Result<Self, ()> {
+        Ok(Self {
+            qname: decode_domain(decoder)?,
+            qtype: decoder.read_u16().try_into().unwrap(),
+            qclass: decoder.read_u16().try_into().unwrap(),
         })
-        .chain([0])
-        .collect()
+    }
 }
 
+fn decode_domain(decoder: &mut Decoder) -> Result<ArrayVec<u8, 255>, ()> {
+    let mut domain = ArrayVec::<_, 255>::new();
+
+    loop {
+        let label_or_pointer = decoder.peek().unwrap();
+
+        match label_or_pointer {
+            0 => break,
+            octet if octet >> 6 == 0 => {
+                domain.try_extend_from_slice(&read_label(decoder)).unwrap();
+            }
+            octet if octet >> 6 == 3 => {
+                let pointer = usize::try_from(octet & 0b00111111).unwrap();
+                let mut decoder = decoder.clone_at_index(pointer);
+                domain
+                    .try_extend_from_slice(&read_label(&mut decoder))
+                    .unwrap()
+            }
+            _ => return Err(()),
+        }
+    }
+
+    Ok(domain)
+}
+fn read_label(decoder: &mut Decoder) -> ArrayVec<u8, 63> {
+    let length = usize::try_from(decoder.pop().unwrap()).unwrap();
+    let label = decoder.read_slice(length);
+    ArrayVec::<_, 63>::try_from(label).unwrap()
+}
+
+// TODO: Add a test for pointers.
 #[test]
-fn test_domain_encoding() {
-    assert_eq!(
-        &[7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c', b'o', b'm', 0],
-        encode_domain("example.com").as_slice()
-    );
+fn check_domain_decoding() {
+    let domain = &[
+        7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c', b'o', b'm', 0,
+    ];
+    let mut decoder = Decoder::new(domain);
+    assert!(decode_domain(&mut decoder).is_ok());
 }
 
 pub fn build_query(id: u16, type_: QueryType, domain: &str) -> ArrayVec<u8, 271> {
@@ -82,4 +110,25 @@ fn check_query_hex() {
         "3c5f0100000100000000000003777777076578616d706c6503636f6d0000010001",
         hex::encode(query),
     )
+}
+
+fn encode_domain(domain: &str) -> ArrayVec<u8, 255> {
+    domain
+        .split('.')
+        .flat_map(|part| {
+            let mut label = ArrayVec::<_, 63>::new();
+            label.push(u8::try_from(part.len()).unwrap());
+            label.try_extend_from_slice(part.as_bytes()).unwrap();
+            label
+        })
+        .chain([0])
+        .collect()
+}
+
+#[test]
+fn check_domain_encoding() {
+    assert_eq!(
+        &[7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c', b'o', b'm', 0],
+        encode_domain("example.com").as_slice()
+    );
 }

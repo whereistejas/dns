@@ -10,8 +10,14 @@ pub struct Message {
 }
 
 impl Message {
-    pub(crate) fn from_bytes(_decoder: Decoder) -> Result<Self, ()> {
-        Err(())
+    pub(crate) fn from_bytes(mut decoder: Decoder) -> Result<Self, ()> {
+        Ok(Self {
+            header: Header::from_bytes(&mut decoder)?,
+            question: Query::from_bytes(&mut decoder)?,
+            answer: todo!(),
+            authority: todo!(),
+            additional: todo!(),
+        })
     }
 }
 
