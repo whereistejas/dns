@@ -5,7 +5,7 @@ use arrayvec::ArrayVec;
 use crate::{
     constants::{QueryClass, QueryType},
     decoder::Decoder,
-    domain::encode_domain,
+    domain::Domain,
     header::Header,
     message::Message,
     query::Query,
@@ -31,7 +31,7 @@ pub fn build_query(id: u16, type_: QueryType, domain: &str) -> ArrayVec<u8, 271>
     let mut header = Header::new(id, 1 << 8);
     header.qd_count += 1;
     let question = Query {
-        qname: encode_domain(domain),
+        qname: Domain::new(domain),
         qtype: type_,
         qclass: QueryClass::IN,
     };
@@ -54,6 +54,7 @@ fn check_query_hex() {
         hex::encode(query),
     )
 }
+
 pub fn send_query(domain: &str, name_server: IpAddr) -> Result<Message, ()> {
     let socket = UdpSocket::bind("0.0.0.0:0").expect("Couldn't bind to a random UDP address.");
     let query = build_query(rand::random(), QueryType::A, domain);

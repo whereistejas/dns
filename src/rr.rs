@@ -9,10 +9,25 @@ pub(crate) struct ResponseRecord {
     pub(crate) class: ResponseClass,
     pub(crate) ttl: u32,
     pub(crate) rd_length: u16,
-    pub(crate) rdata: ArrayVec<u8, 249>,
+    rdata: RData,
 }
 impl ResponseRecord {
     pub(crate) fn from_bytes(decoder: &mut crate::decoder::Decoder<'_>) -> _ {
         todo!()
+            rdata: RData::from_bytes(type_, class, decoder)?,
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum RData {
+    CNAME,
+    Other,
+}
+
+impl RData {
+    fn from_bytes(
+        type_: ResponseType,
+        class: ResponseClass,
+        decoder: &mut Decoder,
+    ) -> Result<Self, ()> {
+        Err(())
     }
 }
