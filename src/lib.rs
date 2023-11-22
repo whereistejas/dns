@@ -1,3 +1,5 @@
+#![feature(exact_size_is_empty)]
+
 use std::net::{IpAddr, SocketAddr, UdpSocket};
 
 use arrayvec::ArrayVec;
@@ -55,7 +57,7 @@ fn check_query_hex() {
     )
 }
 
-pub fn send_query(domain: &str, name_server: IpAddr) -> Result<Message, ()> {
+pub fn send_query(domain: &str, name_server: IpAddr) -> Message {
     let socket = UdpSocket::bind("0.0.0.0:0").expect("Couldn't bind to a random UDP address.");
     let query = build_query(rand::random(), QueryType::A, domain);
 
@@ -67,10 +69,21 @@ pub fn send_query(domain: &str, name_server: IpAddr) -> Result<Message, ()> {
     let (bytes_recv, _) = socket
         .recv_from(&mut buf)
         .expect("Received a valid response from name server.");
-
     assert!(bytes_recv < 512);
 
-    let decoder = Decoder::new(buf.as_slice());
+    let mut buffer = ArrayVec::<_, 512>::new();
+    buffer.try_extend_from_slice(buf.as_slice()).unwrap();
 
-    Message::from_bytes(decoder)
+    Message::from_bytes(Decoder::new(&buffer))
+}
+
+#[test]
+fn example_com() {
+    use rr::RData;
+
+    let response = send_query("www.example.com", "8.8.8.8".parse().unwrap());
+    assert!(response
+        .answer
+        .iter()
+        .any(|record| record.r_data == RData::A([93, 184, 216, 34,])));
 }
