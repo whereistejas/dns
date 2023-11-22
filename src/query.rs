@@ -27,11 +27,11 @@ impl Query {
         bytes
     }
 
-    pub(crate) fn from_bytes(decoder: &mut Decoder) -> Result<Self, ()> {
-        Ok(Self {
-            qname: Domain::from_bytes(decoder)?,
+    pub(crate) fn from_bytes(decoder: &mut Decoder) -> Self {
+        Self {
+            qname: Domain::from_bytes(decoder),
             qtype: decoder.read_u16().try_into().unwrap(),
             qclass: decoder.read_u16().try_into().unwrap(),
-        })
+        }
     }
 }

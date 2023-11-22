@@ -37,14 +37,14 @@ impl Header {
             self.ad_count.to_be_bytes()[1],
         ]
     }
-    pub(crate) fn from_bytes(decoder: &mut Decoder) -> Result<Self, ()> {
-        Ok(Self {
+    pub(crate) fn from_bytes(decoder: &mut Decoder) -> Self {
+        Self {
             id: decoder.read_u16(),
             flags: decoder.read_u16(),
             qd_count: decoder.read_u16(),
             an_count: decoder.read_u16(),
             ns_count: decoder.read_u16(),
             ad_count: decoder.read_u16(),
-        })
+        }
     }
 }
