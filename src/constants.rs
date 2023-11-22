@@ -36,7 +36,7 @@ pub enum ResponseType {
     TXT = 16,
 }
 impl TryFrom<u16> for ResponseType {
-    type Error = ();
+    type Error = String;
 
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
@@ -56,7 +56,7 @@ impl TryFrom<u16> for ResponseType {
             14 => Ok(Self::MINFO),
             15 => Ok(Self::MX),
             16 => Ok(Self::TXT),
-            _ => Err(()),
+            _ => Err(format!("Unsupported value for ResponseType: {value:?}")),
         }
     }
 }
@@ -72,7 +72,7 @@ pub enum ResponseClass {
     HS = 4,
 }
 impl TryFrom<u16> for ResponseClass {
-    type Error = ();
+    type Error = String;
 
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
@@ -80,7 +80,7 @@ impl TryFrom<u16> for ResponseClass {
             2 => Ok(Self::CS),
             3 => Ok(Self::CH),
             4 => Ok(Self::HS),
-            _ => Err(()),
+            _ => Err(format!("Unsupported value for ResponseClass: {value:?}")),
         }
     }
 }
@@ -129,7 +129,7 @@ pub enum QueryType {
     All = 255,
 }
 impl TryFrom<u16> for QueryType {
-    type Error = ();
+    type Error = String;
 
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
@@ -153,7 +153,7 @@ impl TryFrom<u16> for QueryType {
             253 => Ok(Self::MAILB),
             254 => Ok(Self::MAILA),
             255 => Ok(Self::All),
-            _ => Err(()),
+            _ => Err(format!("Unsupported value for QueryType: {value:?}")),
         }
     }
 }
@@ -173,7 +173,7 @@ pub enum QueryClass {
     All = 255,
 }
 impl TryFrom<u16> for QueryClass {
-    type Error = ();
+    type Error = String;
 
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
@@ -182,7 +182,7 @@ impl TryFrom<u16> for QueryClass {
             3 => Ok(Self::CH),
             4 => Ok(Self::HS),
             255 => Ok(Self::All),
-            _ => Err(()),
+            _ => Err(format!("Unsupported value for QueryClass: {value:?}")),
         }
     }
 }
