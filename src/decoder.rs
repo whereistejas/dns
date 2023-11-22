@@ -1,10 +1,23 @@
 #![allow(dead_code)]
 
+use std::fmt;
+
 /// This idea for a decoder is borrowed from Hickory DNS's BinEncoder.
 pub struct Decoder<'a> {
     /// the original, is never modified
     buffer: &'a [u8],
     remaining: &'a [u8],
+}
+
+impl<'a> fmt::Debug for Decoder<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!(
+            "Buffer: {:?}\nRemaining: {:?}\nCurrent: {}",
+            self.buffer,
+            self.remaining,
+            self.current()
+        ))
+    }
 }
 
 impl<'a> Decoder<'a> {
