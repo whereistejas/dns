@@ -1,13 +1,68 @@
-use arrayvec::ArrayVec;
-
-use crate::constants::{ResponseClass, ResponseType};
+use crate::{
+    constants::{ResponseClass, ResponseType},
+    decoder::Decoder,
+    domain::{self, Domain},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ResponseRecord {
-    pub(crate) name: ArrayVec<u8, 255>,
-    pub(crate) type_: ResponseType,
-    pub(crate) class: ResponseClass,
-    pub(crate) ttl: u32,
-    pub(crate) rd_length: u16,
-    pub(crate) rdata: ArrayVec<u8, 249>,
+pub struct ResponseRecord {
+    name: Domain,
+    type_: ResponseType,
+    class: ResponseClass,
+    ttl: u32,
+    rd_length: u16,
+    pub r_data: RData,
+}
+
+impl ResponseRecord {
+    pub(crate) fn decode(decoder: &mut Decoder) -> Self {
+        let name = Domain::from_iter(domain::decode(decoder));
+        let type_ = decoder.read_u16().try_into().unwrap();
+        let class = decoder.read_u16().try_into().unwrap();
+
+        Self {
+            name,
+            type_,
+            class,
+            ttl: decoder.read_u32(),
+            rd_length: decoder.read_u16(),
+            r_data: RData::from_bytes(type_, class, decoder),
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RData {
+    /// the canonical name for an alias
+    CNAME(Domain),
+    /// a host address
+    A([u8; 4]),
+    /// an authoritative name server
+    NS(Domain),
+}
+
+impl RData {
+    fn from_bytes(type_: ResponseType, class: ResponseClass, decoder: &mut Decoder) -> Self {
+        match (class, type_) {
+            (ResponseClass::IN, ResponseType::CNAME) => {
+                let domain = Domain::from_iter(domain::decode(decoder));
+                Self::CNAME(domain)
+            }
+            (ResponseClass::IN, ResponseType::A) => {
+                let ip_addr = [
+                    decoder.pop().unwrap(),
+                    decoder.pop().unwrap(),
+                    decoder.pop().unwrap(),
+                    decoder.pop().unwrap(),
+                ];
+                Self::A(ip_addr)
+            }
+            (ResponseClass::IN, ResponseType::NS) => {
+                let domain = Domain::from_iter(domain::decode(decoder));
+                Self::NS(domain)
+            }
+            (_, _) => unimplemented!(),
+        }
+    }
 }
