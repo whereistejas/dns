@@ -82,7 +82,7 @@ impl Domain {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn display<'a>(&'a self) -> String {
+    fn display(&self) -> String {
         let mut decoder = Decoder::new(self.as_bytes());
 
         decode_domain(&mut decoder)
