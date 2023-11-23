@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::fmt;
 
 /// The design for this decoder is borrowed from the [BinDecoder](https://github.com/hickory-dns/hickory-dns/blob/main/crates/proto/src/serialize/binary/decoder.rs) in HickoryDNS.
@@ -25,6 +23,9 @@ impl<'a> Decoder<'a> {
             buffer,
             remaining: buffer,
         }
+    }
+    pub fn len(&self) -> usize {
+        self.buffer.len()
     }
     pub fn current(&self) -> usize {
         self.buffer.len() - self.remaining.len()

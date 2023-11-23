@@ -220,13 +220,18 @@ impl ResponseRecord {
         let type_ = decoder.read_u16().try_into().unwrap();
         let class = decoder.read_u16().try_into().unwrap();
 
+        let ttl = decoder.read_u32();
+        let rd_length = decoder.read_u16();
+        // TODO: Use `rd_length` to assert that we have read exactly that many bytes.
+        let r_data = RData::decode(type_, class, decoder);
+
         Self {
             name,
             type_,
             class,
-            ttl: decoder.read_u32(),
-            rd_length: decoder.read_u16(),
-            r_data: RData::from_bytes(type_, class, decoder),
+            ttl,
+            rd_length,
+            r_data,
         }
     }
 }
@@ -243,7 +248,7 @@ pub enum RData {
 }
 
 impl RData {
-    fn from_bytes(type_: ResponseType, class: ResponseClass, decoder: &mut Decoder) -> Self {
+    fn decode(type_: ResponseType, class: ResponseClass, decoder: &mut Decoder) -> Self {
         match (class, type_) {
             (ResponseClass::IN, ResponseType::CNAME) => {
                 let domain = Domain::from_iter(decode_domain(decoder));
@@ -279,19 +284,26 @@ pub struct Message {
 impl Message {
     fn decode(mut decoder: Decoder) -> Self {
         let header = Header::decode(&mut decoder);
+        let question = Query::decode(&mut decoder);
+
+        let answer = (0..header.an_count)
+            .map(|_| ResponseRecord::decode(&mut decoder))
+            .collect::<Vec<_>>();
+        let authority = (0..header.ns_count)
+            .map(|_| ResponseRecord::decode(&mut decoder))
+            .collect::<Vec<_>>();
+        let additional = (0..header.ad_count)
+            .map(|_| ResponseRecord::decode(&mut decoder))
+            .collect::<Vec<_>>();
+
+        assert_eq!(decoder.len(), decoder.current());
 
         Self {
             header,
-            question: Query::decode(&mut decoder),
-            answer: (0..header.an_count)
-                .map(|_| ResponseRecord::decode(&mut decoder))
-                .collect::<Vec<_>>(),
-            authority: (0..header.ns_count)
-                .map(|_| ResponseRecord::decode(&mut decoder))
-                .collect::<Vec<_>>(),
-            additional: (0..header.ad_count)
-                .map(|_| ResponseRecord::decode(&mut decoder))
-                .collect::<Vec<_>>(),
+            question,
+            answer,
+            authority,
+            additional,
         }
     }
 }
@@ -337,10 +349,8 @@ pub fn send_query(domain: &str, name_server: IpAddr) -> Message {
     let (bytes_recv, _) = socket
         .recv_from(&mut buf)
         .expect("Received a valid response from name server.");
-    assert!(bytes_recv < 512);
-
     let mut buffer = ArrayVec::<_, 512>::new();
-    buffer.extend(buf);
+    buffer.try_extend_from_slice(&buf[..bytes_recv]).unwrap();
 
     Message::decode(Decoder::new(&buffer))
 }
