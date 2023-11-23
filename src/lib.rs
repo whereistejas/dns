@@ -33,7 +33,7 @@ pub fn build_query(id: u16, type_: QueryType, domain: &str) -> ArrayVec<u8, 271>
     let mut header = Header::new(id, 1 << 8);
     header.qd_count += 1;
     let question = Query {
-        qname: Domain::new(domain),
+        qname: Domain::from_iter(domain::encode(domain)),
         qtype: type_,
         qclass: QueryClass::IN,
     };
@@ -82,6 +82,7 @@ fn example_com() {
     use rr::RData;
 
     let response = send_query("www.example.com", "8.8.8.8".parse().unwrap());
+
     assert!(response
         .answer
         .iter()

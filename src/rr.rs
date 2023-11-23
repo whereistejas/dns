@@ -1,7 +1,7 @@
 use crate::{
     constants::{ResponseClass, ResponseType},
     decoder::Decoder,
-    domain::Domain,
+    domain::{self, Domain},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,7 +16,7 @@ pub struct ResponseRecord {
 
 impl ResponseRecord {
     pub(crate) fn from_bytes(decoder: &mut Decoder) -> Self {
-        let name = Domain::from_bytes(decoder);
+        let name = Domain::from_iter(domain::decode(decoder));
         let type_ = decoder.read_u16().try_into().unwrap();
         let class = decoder.read_u16().try_into().unwrap();
 
@@ -46,7 +46,7 @@ impl RData {
     fn from_bytes(type_: ResponseType, class: ResponseClass, decoder: &mut Decoder) -> Self {
         match (class, type_) {
             (ResponseClass::IN, ResponseType::CNAME) => {
-                let domain = Domain::from_bytes(decoder);
+                let domain = Domain::from_iter(domain::decode(decoder));
                 Self::CNAME(domain)
             }
             (ResponseClass::IN, ResponseType::A) => {
@@ -59,7 +59,7 @@ impl RData {
                 Self::A(ip_addr)
             }
             (ResponseClass::IN, ResponseType::NS) => {
-                let domain = Domain::from_bytes(decoder);
+                let domain = Domain::from_iter(domain::decode(decoder));
                 Self::NS(domain)
             }
             (_, _) => unimplemented!(),

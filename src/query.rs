@@ -3,7 +3,7 @@ use arrayvec::ArrayVec;
 use crate::{
     constants::{QueryClass, QueryType},
     decoder::Decoder,
-    domain::Domain,
+    domain::{self, Domain},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,7 +29,7 @@ impl Query {
 
     pub(crate) fn from_bytes(decoder: &mut Decoder) -> Self {
         Self {
-            qname: Domain::from_bytes(decoder),
+            qname: Domain::from_iter(domain::decode(decoder)),
             qtype: decoder.read_u16().try_into().unwrap(),
             qclass: decoder.read_u16().try_into().unwrap(),
         }
