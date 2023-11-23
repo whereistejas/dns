@@ -11,17 +11,17 @@ mod constants;
 mod decoder;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Header {
-    pub(crate) id: u16,
-    pub(crate) flags: u16,
-    pub(crate) qd_count: u16,
-    pub(crate) an_count: u16,
-    pub(crate) ns_count: u16,
-    pub(crate) ad_count: u16,
+struct Header {
+    id: u16,
+    flags: u16,
+    qd_count: u16,
+    an_count: u16,
+    ns_count: u16,
+    ad_count: u16,
 }
 
 impl Header {
-    pub(crate) fn new(id: u16, flags: u16) -> Self {
+    fn new(id: u16, flags: u16) -> Self {
         Self {
             id,
             flags,
@@ -31,7 +31,7 @@ impl Header {
             ad_count: 0,
         }
     }
-    pub(crate) fn encode(&self) -> [u8; 12] {
+    fn encode(&self) -> [u8; 12] {
         [
             self.id.to_be_bytes()[0],
             self.id.to_be_bytes()[1],
@@ -47,7 +47,7 @@ impl Header {
             self.ad_count.to_be_bytes()[1],
         ]
     }
-    pub(crate) fn decode(decoder: &mut Decoder) -> Self {
+    fn decode(decoder: &mut Decoder) -> Self {
         Self {
             id: decoder.read_u16(),
             flags: decoder.read_u16(),
@@ -64,7 +64,7 @@ impl Header {
 pub struct Domain(ArrayVec<u8, 255>);
 
 impl Domain {
-    pub(crate) fn from_iter(labels: impl Iterator<Item = Label>) -> Self {
+    fn from_iter(labels: impl Iterator<Item = Label>) -> Self {
         let mut me = ArrayVec::new();
 
         for label in labels {
@@ -77,7 +77,7 @@ impl Domain {
         Self(me)
     }
 
-    pub(crate) fn as_bytes(&self) -> &[u8] {
+    fn as_bytes(&self) -> &[u8] {
         self.0.as_slice()
     }
 
@@ -92,14 +92,14 @@ impl Domain {
     }
 }
 
-pub(crate) fn encode_domain<'a>(domain: &'a str) -> impl Iterator<Item = Label> + 'a {
+fn encode_domain<'a>(domain: &'a str) -> impl Iterator<Item = Label> + 'a {
     domain
         .split('.')
         .into_iter()
         .map(|part| Label::encode(part))
         .chain([Label::Empty])
 }
-pub(crate) fn decode_domain(decoder: &mut Decoder) -> impl Iterator<Item = Label> {
+fn decode_domain(decoder: &mut Decoder) -> impl Iterator<Item = Label> {
     let mut labels = vec![];
 
     loop {
@@ -176,14 +176,14 @@ fn domain() {
     )
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Query {
-    pub(crate) qname: Domain,
-    pub(crate) qtype: QueryType,
-    pub(crate) qclass: QueryClass,
+struct Query {
+    qname: Domain,
+    qtype: QueryType,
+    qclass: QueryClass,
 }
 
 impl Query {
-    pub(crate) fn encode(&self) -> ArrayVec<u8, 259> {
+    fn encode(&self) -> ArrayVec<u8, 259> {
         let mut bytes = ArrayVec::<_, 259>::new();
         bytes.try_extend_from_slice(self.qname.as_bytes()).unwrap();
         bytes
@@ -196,7 +196,7 @@ impl Query {
         bytes
     }
 
-    pub(crate) fn decode(decoder: &mut Decoder) -> Self {
+    fn decode(decoder: &mut Decoder) -> Self {
         Self {
             qname: Domain::from_iter(decode_domain(decoder)),
             qtype: decoder.read_u16().try_into().unwrap(),
@@ -216,7 +216,7 @@ pub struct ResponseRecord {
 }
 
 impl ResponseRecord {
-    pub(crate) fn decode(decoder: &mut Decoder) -> Self {
+    fn decode(decoder: &mut Decoder) -> Self {
         let name = Domain::from_iter(decode_domain(decoder));
         let type_ = decoder.read_u16().try_into().unwrap();
         let class = decoder.read_u16().try_into().unwrap();
@@ -280,7 +280,7 @@ pub struct Message {
 
 // TODO: Create a global Result type in lib.rs
 impl Message {
-    pub(crate) fn decode(mut decoder: Decoder) -> Self {
+    fn decode(mut decoder: Decoder) -> Self {
         let header = Header::decode(&mut decoder);
 
         Self {
