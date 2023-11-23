@@ -92,12 +92,8 @@ impl Domain {
     }
 }
 
-fn encode_domain<'a>(domain: &'a str) -> impl Iterator<Item = Label> + 'a {
-    domain
-        .split('.')
-        .into_iter()
-        .map(|part| Label::encode(part))
-        .chain([Label::Empty])
+fn encode_domain(domain: &str) -> impl Iterator<Item = Label> + '_ {
+    domain.split('.').map(Label::encode).chain([Label::Empty])
 }
 fn decode_domain(decoder: &mut Decoder) -> impl Iterator<Item = Label> {
     let mut labels = vec![];
@@ -119,8 +115,7 @@ fn decode_domain(decoder: &mut Decoder) -> impl Iterator<Item = Label> {
                     decoder.pop().unwrap() & 0b00111111,
                     decoder.pop().unwrap(),
                 ])
-                .try_into()
-                .unwrap();
+                .into();
 
                 return decode_domain(&mut decoder.clone_at_index(pointer));
             }
@@ -147,7 +142,7 @@ impl Label {
     fn decode(decoder: &mut Decoder) -> Self {
         let mut label = ArrayVec::new();
 
-        let length = usize::try_from(decoder.pop().unwrap()).unwrap();
+        let length = usize::from(decoder.pop().unwrap());
         label.push(u8::try_from(length).unwrap());
         label
             .try_extend_from_slice(decoder.read_slice(length))
@@ -157,9 +152,9 @@ impl Label {
     }
 
     #[allow(dead_code)]
-    fn as_str<'a>(&'a self) -> &'a str {
+    fn as_str(&self) -> &str {
         match self {
-            Label::Part(part) => std::str::from_utf8(&part).unwrap(),
+            Label::Part(part) => std::str::from_utf8(part).unwrap(),
             Label::Empty => "",
         }
     }
