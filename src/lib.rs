@@ -193,8 +193,8 @@ impl Query {
     fn decode(decoder: &mut Decoder) -> Self {
         Self {
             qname: Domain::from_iter(decode_domain(decoder)),
-            qtype: decoder.read_u16().try_into().unwrap(),
-            qclass: decoder.read_u16().try_into().unwrap(),
+            qtype: QueryType::from(decoder.read_u16()),
+            qclass: QueryClass::from(decoder.read_u16()),
         }
     }
 }
@@ -212,8 +212,8 @@ pub struct ResponseRecord {
 impl ResponseRecord {
     fn decode(decoder: &mut Decoder) -> Self {
         let name = Domain::from_iter(decode_domain(decoder));
-        let type_ = decoder.read_u16().try_into().unwrap();
-        let class = decoder.read_u16().try_into().unwrap();
+        let type_ = ResponseType::from(decoder.read_u16());
+        let class = ResponseClass::from(decoder.read_u16());
 
         let ttl = decoder.read_u32();
         let rd_length = decoder.read_u16();
