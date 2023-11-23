@@ -38,9 +38,9 @@ impl<'a> Decoder<'a> {
     /// Returns the next byte incrementing the index.
     /// If we are at the end of the buffer returns [None].
     pub fn pop(&mut self) -> Option<u8> {
-        if let Some((&result, remaining)) = self.remaining.split_first() {
+        if let Some((&first, remaining)) = self.remaining.split_first() {
             self.remaining = remaining;
-            Some(result)
+            Some(first)
         } else {
             None
         }

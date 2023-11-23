@@ -15,7 +15,7 @@ pub struct ResponseRecord {
 }
 
 impl ResponseRecord {
-    pub(crate) fn from_bytes(decoder: &mut Decoder) -> Self {
+    pub(crate) fn decode(decoder: &mut Decoder) -> Self {
         let name = Domain::from_iter(domain::decode(decoder));
         let type_ = decoder.read_u16().try_into().unwrap();
         let class = decoder.read_u16().try_into().unwrap();

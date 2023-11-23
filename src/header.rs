@@ -21,7 +21,7 @@ impl Header {
             ad_count: 0,
         }
     }
-    pub(crate) fn as_bytes(&self) -> [u8; 12] {
+    pub(crate) fn encode(&self) -> [u8; 12] {
         [
             self.id.to_be_bytes()[0],
             self.id.to_be_bytes()[1],
@@ -37,7 +37,7 @@ impl Header {
             self.ad_count.to_be_bytes()[1],
         ]
     }
-    pub(crate) fn from_bytes(decoder: &mut Decoder) -> Self {
+    pub(crate) fn decode(decoder: &mut Decoder) -> Self {
         Self {
             id: decoder.read_u16(),
             flags: decoder.read_u16(),

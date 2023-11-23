@@ -22,28 +22,23 @@ mod rr;
 
 mod decoder;
 
-pub fn build_query(id: u16, type_: QueryType, domain: &str) -> ArrayVec<u8, 271> {
+pub fn build_query(id: u16, type_: QueryType, domain: &str) -> ArrayVec<u8, 281> {
     assert!(
         domain.as_bytes().len() <= 255,
         "Domain name cannot have more than 255 octets"
     );
-
-    let mut query = ArrayVec::<u8, 271>::new();
+    let mut query = ArrayVec::new();
 
     let mut header = Header::new(id, 1 << 8);
     header.qd_count += 1;
+    query.extend(header.encode());
+
     let question = Query {
         qname: Domain::from_iter(domain::encode(domain)),
         qtype: type_,
         qclass: QueryClass::IN,
     };
-
-    query
-        .try_extend_from_slice(header.as_bytes().as_slice())
-        .unwrap();
-    query
-        .try_extend_from_slice(question.as_bytes().as_slice())
-        .unwrap();
+    query.extend(question.encode());
 
     query
 }
@@ -72,9 +67,9 @@ pub fn send_query(domain: &str, name_server: IpAddr) -> Message {
     assert!(bytes_recv < 512);
 
     let mut buffer = ArrayVec::<_, 512>::new();
-    buffer.try_extend_from_slice(buf.as_slice()).unwrap();
+    buffer.extend(buf);
 
-    Message::from_bytes(Decoder::new(&buffer))
+    Message::decode(Decoder::new(&buffer))
 }
 
 #[test]

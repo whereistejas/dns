@@ -14,7 +14,7 @@ pub(crate) struct Query {
 }
 
 impl Query {
-    pub(crate) fn as_bytes(&self) -> ArrayVec<u8, 259> {
+    pub(crate) fn encode(&self) -> ArrayVec<u8, 259> {
         let mut bytes = ArrayVec::<_, 259>::new();
         bytes.try_extend_from_slice(self.qname.as_bytes()).unwrap();
         bytes
@@ -27,7 +27,7 @@ impl Query {
         bytes
     }
 
-    pub(crate) fn from_bytes(decoder: &mut Decoder) -> Self {
+    pub(crate) fn decode(decoder: &mut Decoder) -> Self {
         Self {
             qname: Domain::from_iter(domain::decode(decoder)),
             qtype: decoder.read_u16().try_into().unwrap(),

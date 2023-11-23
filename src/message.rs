@@ -12,20 +12,20 @@ pub struct Message {
 
 // TODO: Create a global Result type in lib.rs
 impl Message {
-    pub(crate) fn from_bytes(mut decoder: Decoder) -> Self {
-        let header = Header::from_bytes(&mut decoder);
+    pub(crate) fn decode(mut decoder: Decoder) -> Self {
+        let header = Header::decode(&mut decoder);
 
         Self {
             header,
-            question: Query::from_bytes(&mut decoder),
+            question: Query::decode(&mut decoder),
             answer: (0..header.an_count)
-                .map(|_| ResponseRecord::from_bytes(&mut decoder))
+                .map(|_| ResponseRecord::decode(&mut decoder))
                 .collect::<Vec<_>>(),
             authority: (0..header.ns_count)
-                .map(|_| ResponseRecord::from_bytes(&mut decoder))
+                .map(|_| ResponseRecord::decode(&mut decoder))
                 .collect::<Vec<_>>(),
             additional: (0..header.ad_count)
-                .map(|_| ResponseRecord::from_bytes(&mut decoder))
+                .map(|_| ResponseRecord::decode(&mut decoder))
                 .collect::<Vec<_>>(),
         }
     }
