@@ -165,7 +165,6 @@ impl Label {
     }
 }
 
-// TODO: Add a test for pointers.
 #[test]
 fn domain() {
     assert_eq!(
@@ -272,13 +271,11 @@ impl RData {
 pub struct Message {
     header: Header,
     question: Query,
-    // TODO: Replace all `Vec`s with `TinyVec`s.
     pub answer: Vec<ResponseRecord>,
     pub authority: Vec<ResponseRecord>,
     pub additional: Vec<ResponseRecord>,
 }
 
-// TODO: Create a global Result type in lib.rs
 impl Message {
     fn decode(mut decoder: Decoder) -> Self {
         let header = Header::decode(&mut decoder);
