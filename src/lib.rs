@@ -5,10 +5,12 @@ use arrayvec::ArrayVec;
 use crate::{
     constants::{QueryClass, QueryType, ResponseClass, ResponseType},
     decoder::Decoder,
+    encoder::Encoder,
 };
 
 mod constants;
 mod decoder;
+mod encoder;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Header {
@@ -31,21 +33,13 @@ impl Header {
             ad_count: 0,
         }
     }
-    fn encode(&self) -> [u8; 12] {
-        [
-            self.id.to_be_bytes()[0],
-            self.id.to_be_bytes()[1],
-            self.flags.to_be_bytes()[0],
-            self.flags.to_be_bytes()[1],
-            self.qd_count.to_be_bytes()[0],
-            self.qd_count.to_be_bytes()[1],
-            self.an_count.to_be_bytes()[0],
-            self.an_count.to_be_bytes()[1],
-            self.ns_count.to_be_bytes()[0],
-            self.ns_count.to_be_bytes()[1],
-            self.ad_count.to_be_bytes()[0],
-            self.ad_count.to_be_bytes()[1],
-        ]
+    fn encode(&self, encoder: &mut Encoder) {
+        encoder.try_write_u16(self.id).unwrap();
+        encoder.try_write_u16(self.flags).unwrap();
+        encoder.try_write_u16(self.qd_count).unwrap();
+        encoder.try_write_u16(self.an_count).unwrap();
+        encoder.try_write_u16(self.ns_count).unwrap();
+        encoder.try_write_u16(self.ad_count).unwrap();
     }
     fn decode(decoder: &mut Decoder) -> Self {
         Self {
@@ -93,6 +87,11 @@ impl Domain {
 }
 
 fn encode_domain(domain: &str) -> impl Iterator<Item = Label> + '_ {
+    assert!(
+        domain.as_bytes().len() <= 255,
+        "Domain name cannot have more than 255 octets"
+    );
+
     domain.split('.').map(Label::encode).chain([Label::Empty])
 }
 fn decode_domain(decoder: &mut Decoder) -> impl Iterator<Item = Label> {
@@ -177,17 +176,10 @@ struct Query {
 }
 
 impl Query {
-    fn encode(&self) -> ArrayVec<u8, 259> {
-        let mut bytes = ArrayVec::<_, 259>::new();
-        bytes.try_extend_from_slice(self.qname.as_bytes()).unwrap();
-        bytes
-            .try_extend_from_slice(u16::to_be_bytes(self.qtype as u16).as_slice())
-            .unwrap();
-        bytes
-            .try_extend_from_slice(u16::to_be_bytes(self.qclass as u16).as_slice())
-            .unwrap();
-
-        bytes
+    fn encode(&self, encoder: &mut Encoder) {
+        encoder.try_write_slice(self.qname.as_bytes()).unwrap();
+        encoder.try_write_u16(self.qtype as u16).unwrap();
+        encoder.try_write_u16(self.qclass as u16).unwrap();
     }
 
     fn decode(decoder: &mut Decoder) -> Self {
@@ -302,25 +294,21 @@ impl Message {
         }
     }
 }
-pub fn build_query(id: u16, type_: QueryType, domain: &str) -> ArrayVec<u8, 281> {
-    assert!(
-        domain.as_bytes().len() <= 255,
-        "Domain name cannot have more than 255 octets"
-    );
-    let mut query = ArrayVec::new();
+pub fn build_query(id: u16, type_: QueryType, domain: &str) -> ArrayVec<u8, 512> {
+    let mut encoder = Encoder::new();
 
     let mut header = Header::new(id, 1 << 8);
     header.qd_count += 1;
-    query.extend(header.encode());
+    header.encode(&mut encoder);
 
     let question = Query {
         qname: Domain::from_iter(encode_domain(domain)),
         qtype: type_,
         qclass: QueryClass::IN,
     };
-    query.extend(question.encode());
+    question.encode(&mut encoder);
 
-    query
+    encoder.bytes()
 }
 
 #[test]
@@ -344,6 +332,7 @@ pub fn send_query(domain: &str, name_server: IpAddr) -> Message {
     let (bytes_recv, _) = socket
         .recv_from(&mut buf)
         .expect("Received a valid response from name server.");
+
     let mut buffer = ArrayVec::<_, 512>::new();
     buffer.try_extend_from_slice(&buf[..bytes_recv]).unwrap();
 
