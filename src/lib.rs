@@ -366,12 +366,75 @@ pub fn send_query(domain: &str, name_server: IpAddr) -> Message {
     Message::decode(Decoder::new(&buffer))
 }
 
+#[allow(dead_code)]
+fn pretty_print_response(message: &Message) {
+    println!("Query ID: {}", message.header.id);
+
+    println!("\n\nAnswer");
+    for record in &message.answer {
+        println!("\tRecord type: {:?}", record.type_);
+        println!("\tDomain Name: {}", record.name.display());
+        println!("\tValue: {:?}", record.r_data.display());
+    }
+
+    println!("\n\nAuthority");
+    for record in &message.authority {
+        println!("\tRecord type: {:?}", record.type_);
+        println!("\tDomain Name: {}", record.name.display());
+        println!("\tValue: {:?}", record.r_data.display());
+    }
+    println!("\n\nAdditional");
+    for record in &message.additional {
+        println!("\tRecord type: {:?}", record.type_);
+        println!("\tDomain Name: {}", record.name.display());
+        println!("\tValue: {:?}", record.r_data.display());
+    }
+}
+
 #[test]
 fn example_com() {
+    let ip_addr: Ipv4Addr = [93, 184, 216, 34].into();
     let response = send_query("www.example.com", "8.8.8.8".parse().unwrap());
 
-    assert!(response
-        .answer
-        .iter()
-        .any(|record| record.r_data == RData::A([93, 184, 216, 34,])));
+    assert!(
+        response
+            .answer
+            .iter()
+            .any(|record| record.r_data == RData::A(ip_addr)),
+        "actual: {:?}\nexpected: {:?}",
+        pretty_print_response(&response),
+        ip_addr
+    );
+}
+
+#[test]
+fn recurse_com() {
+    let ip_addr: Ipv4Addr = [54, 204, 238, 15].into();
+    let response = send_query("www.recurse.com", "8.8.8.8".parse().unwrap());
+
+    assert!(
+        response
+            .answer
+            .iter()
+            .any(|record| record.r_data == RData::A(ip_addr)),
+        "actual: {:?}\nexpected: {:?}",
+        pretty_print_response(&response),
+        ip_addr
+    );
+}
+
+#[test]
+fn google_com() {
+    let ip_addr: Ipv4Addr = [18, 165, 201, 119].into();
+    let response = send_query("www.google.com", "198.41.0.4".parse().unwrap());
+
+    assert!(
+        response
+            .answer
+            .iter()
+            .any(|record| record.r_data == RData::A(ip_addr)),
+        "actual: {:?}\nexpected: {:?}",
+        pretty_print_response(&response),
+        ip_addr
+    );
 }
