@@ -1,10 +1,7 @@
-#![allow(dead_code)]
-
 use std::fmt;
 
-/// This idea for a decoder is borrowed from Hickory DNS's BinEncoder.
+/// The design for this decoder is borrowed from the [BinDecoder](https://github.com/hickory-dns/hickory-dns/blob/main/crates/proto/src/serialize/binary/decoder.rs) in HickoryDNS.
 pub struct Decoder<'a> {
-    /// the original, is never modified
     buffer: &'a [u8],
     remaining: &'a [u8],
 }
@@ -27,16 +24,15 @@ impl<'a> Decoder<'a> {
             remaining: buffer,
         }
     }
+    pub fn len(&self) -> usize {
+        self.buffer.len()
+    }
     pub fn current(&self) -> usize {
         self.buffer.len() - self.remaining.len()
     }
-    /// Returns the next byte without incrementing the index.
-    /// If we are at the end of the buffer returns [None].
-    pub fn peek(&self) -> Option<u8> {
-        (!self.remaining.is_empty()).then(|| self.remaining[0])
+    pub fn peek(&self) -> Option<&u8> {
+        (!self.remaining.is_empty()).then(|| &self.remaining[0])
     }
-    /// Returns the next byte incrementing the index.
-    /// If we are at the end of the buffer returns [None].
     pub fn pop(&mut self) -> Option<u8> {
         if let Some((&first, remaining)) = self.remaining.split_first() {
             self.remaining = remaining;

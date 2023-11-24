@@ -5,23 +5,25 @@ use arrayvec::ArrayVec;
 use crate::{
     constants::{QueryClass, QueryType, ResponseClass, ResponseType},
     decoder::Decoder,
+    encoder::Encoder,
 };
 
 mod constants;
 mod decoder;
+mod encoder;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Header {
-    pub(crate) id: u16,
-    pub(crate) flags: u16,
-    pub(crate) qd_count: u16,
-    pub(crate) an_count: u16,
-    pub(crate) ns_count: u16,
-    pub(crate) ad_count: u16,
+struct Header {
+    id: u16,
+    flags: u16,
+    qd_count: u16,
+    an_count: u16,
+    ns_count: u16,
+    ad_count: u16,
 }
 
 impl Header {
-    pub(crate) fn new(id: u16, flags: u16) -> Self {
+    fn new(id: u16, flags: u16) -> Self {
         Self {
             id,
             flags,
@@ -31,23 +33,15 @@ impl Header {
             ad_count: 0,
         }
     }
-    pub(crate) fn encode(&self) -> [u8; 12] {
-        [
-            self.id.to_be_bytes()[0],
-            self.id.to_be_bytes()[1],
-            self.flags.to_be_bytes()[0],
-            self.flags.to_be_bytes()[1],
-            self.qd_count.to_be_bytes()[0],
-            self.qd_count.to_be_bytes()[1],
-            self.an_count.to_be_bytes()[0],
-            self.an_count.to_be_bytes()[1],
-            self.ns_count.to_be_bytes()[0],
-            self.ns_count.to_be_bytes()[1],
-            self.ad_count.to_be_bytes()[0],
-            self.ad_count.to_be_bytes()[1],
-        ]
+    fn encode(&self, encoder: &mut Encoder) {
+        encoder.try_write_u16(self.id).unwrap();
+        encoder.try_write_u16(self.flags).unwrap();
+        encoder.try_write_u16(self.qd_count).unwrap();
+        encoder.try_write_u16(self.an_count).unwrap();
+        encoder.try_write_u16(self.ns_count).unwrap();
+        encoder.try_write_u16(self.ad_count).unwrap();
     }
-    pub(crate) fn decode(decoder: &mut Decoder) -> Self {
+    fn decode(decoder: &mut Decoder) -> Self {
         Self {
             id: decoder.read_u16(),
             flags: decoder.read_u16(),
@@ -64,7 +58,7 @@ impl Header {
 pub struct Domain(ArrayVec<u8, 255>);
 
 impl Domain {
-    pub(crate) fn from_iter(labels: impl Iterator<Item = Label>) -> Self {
+    fn from_iter(labels: impl Iterator<Item = Label>) -> Self {
         let mut me = ArrayVec::new();
 
         for label in labels {
@@ -77,12 +71,12 @@ impl Domain {
         Self(me)
     }
 
-    pub(crate) fn as_bytes(&self) -> &[u8] {
+    fn as_bytes(&self) -> &[u8] {
         self.0.as_slice()
     }
 
     #[allow(dead_code)]
-    pub(crate) fn display<'a>(&'a self) -> String {
+    fn display(&self) -> String {
         let mut decoder = Decoder::new(self.as_bytes());
 
         decode_domain(&mut decoder)
@@ -92,14 +86,15 @@ impl Domain {
     }
 }
 
-pub(crate) fn encode_domain<'a>(domain: &'a str) -> impl Iterator<Item = Label> + 'a {
-    domain
-        .split('.')
-        .into_iter()
-        .map(|part| Label::encode(part))
-        .chain([Label::Empty])
+fn encode_domain(domain: &str) -> impl Iterator<Item = Label> + '_ {
+    assert!(
+        domain.as_bytes().len() <= 255,
+        "Domain name cannot have more than 255 octets"
+    );
+
+    domain.split('.').map(Label::encode).chain([Label::Empty])
 }
-pub(crate) fn decode_domain(decoder: &mut Decoder) -> impl Iterator<Item = Label> {
+fn decode_domain(decoder: &mut Decoder) -> impl Iterator<Item = Label> {
     let mut labels = vec![];
 
     loop {
@@ -119,8 +114,7 @@ pub(crate) fn decode_domain(decoder: &mut Decoder) -> impl Iterator<Item = Label
                     decoder.pop().unwrap() & 0b00111111,
                     decoder.pop().unwrap(),
                 ])
-                .try_into()
-                .unwrap();
+                .into();
 
                 return decode_domain(&mut decoder.clone_at_index(pointer));
             }
@@ -147,7 +141,7 @@ impl Label {
     fn decode(decoder: &mut Decoder) -> Self {
         let mut label = ArrayVec::new();
 
-        let length = usize::try_from(decoder.pop().unwrap()).unwrap();
+        let length = usize::from(decoder.pop().unwrap());
         label.push(u8::try_from(length).unwrap());
         label
             .try_extend_from_slice(decoder.read_slice(length))
@@ -157,15 +151,14 @@ impl Label {
     }
 
     #[allow(dead_code)]
-    fn as_str<'a>(&'a self) -> &'a str {
+    fn as_str(&self) -> &str {
         match self {
-            Label::Part(part) => std::str::from_utf8(&part).unwrap(),
+            Label::Part(part) => std::str::from_utf8(part).unwrap(),
             Label::Empty => "",
         }
     }
 }
 
-// TODO: Add a test for pointers.
 #[test]
 fn domain() {
     assert_eq!(
@@ -176,31 +169,24 @@ fn domain() {
     )
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Query {
-    pub(crate) qname: Domain,
-    pub(crate) qtype: QueryType,
-    pub(crate) qclass: QueryClass,
+struct Query {
+    qname: Domain,
+    qtype: QueryType,
+    qclass: QueryClass,
 }
 
 impl Query {
-    pub(crate) fn encode(&self) -> ArrayVec<u8, 259> {
-        let mut bytes = ArrayVec::<_, 259>::new();
-        bytes.try_extend_from_slice(self.qname.as_bytes()).unwrap();
-        bytes
-            .try_extend_from_slice(u16::to_be_bytes(self.qtype as u16).as_slice())
-            .unwrap();
-        bytes
-            .try_extend_from_slice(u16::to_be_bytes(self.qclass as u16).as_slice())
-            .unwrap();
-
-        bytes
+    fn encode(&self, encoder: &mut Encoder) {
+        encoder.try_write_slice(self.qname.as_bytes()).unwrap();
+        encoder.try_write_u16(self.qtype as u16).unwrap();
+        encoder.try_write_u16(self.qclass as u16).unwrap();
     }
 
-    pub(crate) fn decode(decoder: &mut Decoder) -> Self {
+    fn decode(decoder: &mut Decoder) -> Self {
         Self {
             qname: Domain::from_iter(decode_domain(decoder)),
-            qtype: decoder.read_u16().try_into().unwrap(),
-            qclass: decoder.read_u16().try_into().unwrap(),
+            qtype: QueryType::from(decoder.read_u16()),
+            qclass: QueryClass::from(decoder.read_u16()),
         }
     }
 }
@@ -216,18 +202,23 @@ pub struct ResponseRecord {
 }
 
 impl ResponseRecord {
-    pub(crate) fn decode(decoder: &mut Decoder) -> Self {
+    fn decode(decoder: &mut Decoder) -> Self {
         let name = Domain::from_iter(decode_domain(decoder));
-        let type_ = decoder.read_u16().try_into().unwrap();
-        let class = decoder.read_u16().try_into().unwrap();
+        let type_ = ResponseType::from(decoder.read_u16());
+        let class = ResponseClass::from(decoder.read_u16());
+
+        let ttl = decoder.read_u32();
+        let rd_length = decoder.read_u16();
+        // TODO: Use `rd_length` to assert that we have read exactly that many bytes.
+        let r_data = RData::decode(type_, class, decoder);
 
         Self {
             name,
             type_,
             class,
-            ttl: decoder.read_u32(),
-            rd_length: decoder.read_u16(),
-            r_data: RData::from_bytes(type_, class, decoder),
+            ttl,
+            rd_length,
+            r_data,
         }
     }
 }
@@ -244,7 +235,7 @@ pub enum RData {
 }
 
 impl RData {
-    fn from_bytes(type_: ResponseType, class: ResponseClass, decoder: &mut Decoder) -> Self {
+    fn decode(type_: ResponseType, class: ResponseClass, decoder: &mut Decoder) -> Self {
         match (class, type_) {
             (ResponseClass::IN, ResponseType::CNAME) => {
                 let domain = Domain::from_iter(decode_domain(decoder));
@@ -272,51 +263,52 @@ impl RData {
 pub struct Message {
     header: Header,
     question: Query,
-    // TODO: Replace all `Vec`s with `TinyVec`s.
     pub answer: Vec<ResponseRecord>,
     pub authority: Vec<ResponseRecord>,
     pub additional: Vec<ResponseRecord>,
 }
 
-// TODO: Create a global Result type in lib.rs
 impl Message {
-    pub(crate) fn decode(mut decoder: Decoder) -> Self {
+    fn decode(mut decoder: Decoder) -> Self {
         let header = Header::decode(&mut decoder);
+        let question = Query::decode(&mut decoder);
+
+        let answer = (0..header.an_count)
+            .map(|_| ResponseRecord::decode(&mut decoder))
+            .collect::<Vec<_>>();
+        let authority = (0..header.ns_count)
+            .map(|_| ResponseRecord::decode(&mut decoder))
+            .collect::<Vec<_>>();
+        let additional = (0..header.ad_count)
+            .map(|_| ResponseRecord::decode(&mut decoder))
+            .collect::<Vec<_>>();
+
+        assert_eq!(decoder.len(), decoder.current());
 
         Self {
             header,
-            question: Query::decode(&mut decoder),
-            answer: (0..header.an_count)
-                .map(|_| ResponseRecord::decode(&mut decoder))
-                .collect::<Vec<_>>(),
-            authority: (0..header.ns_count)
-                .map(|_| ResponseRecord::decode(&mut decoder))
-                .collect::<Vec<_>>(),
-            additional: (0..header.ad_count)
-                .map(|_| ResponseRecord::decode(&mut decoder))
-                .collect::<Vec<_>>(),
+            question,
+            answer,
+            authority,
+            additional,
         }
     }
 }
-pub fn build_query(id: u16, type_: QueryType, domain: &str) -> ArrayVec<u8, 281> {
-    assert!(
-        domain.as_bytes().len() <= 255,
-        "Domain name cannot have more than 255 octets"
-    );
-    let mut query = ArrayVec::new();
+pub fn build_query(id: u16, type_: QueryType, domain: &str) -> ArrayVec<u8, 512> {
+    let mut encoder = Encoder::new();
 
     let mut header = Header::new(id, 1 << 8);
     header.qd_count += 1;
-    query.extend(header.encode());
+    header.encode(&mut encoder);
 
     let question = Query {
         qname: Domain::from_iter(encode_domain(domain)),
         qtype: type_,
         qclass: QueryClass::IN,
     };
-    query.extend(question.encode());
+    question.encode(&mut encoder);
 
-    query
+    encoder.bytes()
 }
 
 #[test]
@@ -340,10 +332,9 @@ pub fn send_query(domain: &str, name_server: IpAddr) -> Message {
     let (bytes_recv, _) = socket
         .recv_from(&mut buf)
         .expect("Received a valid response from name server.");
-    assert!(bytes_recv < 512);
 
     let mut buffer = ArrayVec::<_, 512>::new();
-    buffer.extend(buf);
+    buffer.try_extend_from_slice(&buf[..bytes_recv]).unwrap();
 
     Message::decode(Decoder::new(&buffer))
 }
