@@ -34,6 +34,8 @@ pub enum ResponseType {
     MX = 15,
     ///  text strings
     TXT = 16,
+    /// AAAA records
+    AAAA = 28,
 }
 impl From<u16> for ResponseType {
     fn from(value: u16) -> Self {
@@ -54,7 +56,8 @@ impl From<u16> for ResponseType {
             14 => Self::MINFO,
             15 => Self::MX,
             16 => Self::TXT,
-            _ => panic!("Unsupported value for ResponseType: {value:?}"),
+            28 => Self::AAAA,
+            _ => panic!("Unsupported value: {value:?}"),
         }
     }
 }

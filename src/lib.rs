@@ -1,4 +1,4 @@
-use std::net::{IpAddr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 
 use arrayvec::ArrayVec;
 
@@ -232,7 +232,9 @@ pub enum RData {
     /// the canonical name for an alias
     CNAME(Domain),
     /// a host address
-    A([u8; 4]),
+    A(Ipv4Addr),
+    /// a host address
+    AAAA(Ipv6Addr),
     /// an authoritative name server
     NS(Domain),
 }
@@ -251,13 +253,35 @@ impl RData {
                     decoder.pop().unwrap(),
                     decoder.pop().unwrap(),
                 ];
-                Self::A(ip_addr)
+                Self::A(ip_addr.into())
+            }
+
+            (ResponseClass::IN, ResponseType::AAAA) => {
+                let ip_addr = [
+                    decoder.read_u16(),
+                    decoder.read_u16(),
+                    decoder.read_u16(),
+                    decoder.read_u16(),
+                    decoder.read_u16(),
+                    decoder.read_u16(),
+                    decoder.read_u16(),
+                    decoder.read_u16(),
+                ];
+                Self::AAAA(ip_addr.into())
             }
             (ResponseClass::IN, ResponseType::NS) => {
                 let domain = Domain::from_iter(decode_domain(decoder));
                 Self::NS(domain)
             }
             (_, _) => unimplemented!(),
+        }
+    }
+    fn display(&self) -> String {
+        match self {
+            Self::CNAME(domain) => domain.display(),
+            Self::A(ip_addr) => ip_addr.to_string(),
+            Self::AAAA(ip_addr) => ip_addr.to_string(),
+            Self::NS(domain) => domain.display(),
         }
     }
 }
