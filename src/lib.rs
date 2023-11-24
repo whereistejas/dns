@@ -153,7 +153,10 @@ impl Label {
     #[allow(dead_code)]
     fn as_str(&self) -> &str {
         match self {
-            Label::Part(part) => std::str::from_utf8(part).unwrap(),
+            Label::Part(part) => {
+                let (_len, label) = part.split_first().unwrap();
+                std::str::from_utf8(label).unwrap()
+            }
             Label::Empty => "",
         }
     }
