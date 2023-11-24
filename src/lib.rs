@@ -363,78 +363,66 @@ pub fn send_query(domain: &str, name_server: IpAddr) -> Message {
     let mut buffer = ArrayVec::<_, 512>::new();
     buffer.try_extend_from_slice(&buf[..bytes_recv]).unwrap();
 
+    // Check query IDs.
+    assert_eq!(query[..2], buffer[..2]);
+
     Message::decode(Decoder::new(&buffer))
 }
 
-#[allow(dead_code)]
-fn pretty_print_response(message: &Message) {
-    println!("Query ID: {}", message.header.id);
+const ROOT_SERVER: &str = "198.41.0.4";
 
-    println!("\n\nAnswer");
-    for record in &message.answer {
-        println!("\tRecord type: {:?}", record.type_);
-        println!("\tDomain Name: {}", record.name.display());
-        println!("\tValue: {:?}", record.r_data.display());
-    }
+pub fn resolve_domain(domain: &str, name_server: IpAddr) -> Vec<IpAddr> {
+    let message = send_query(domain, name_server);
 
-    println!("\n\nAuthority");
-    for record in &message.authority {
-        println!("\tRecord type: {:?}", record.type_);
-        println!("\tDomain Name: {}", record.name.display());
-        println!("\tValue: {:?}", record.r_data.display());
-    }
-    println!("\n\nAdditional");
-    for record in &message.additional {
-        println!("\tRecord type: {:?}", record.type_);
-        println!("\tDomain Name: {}", record.name.display());
-        println!("\tValue: {:?}", record.r_data.display());
+    if !message.answer.is_empty() {
+        message
+            .answer
+            .iter()
+            .filter_map(|record| match record.r_data {
+                RData::A(ip_addr) => Some(IpAddr::V4(ip_addr)),
+                _ => None,
+            })
+            .collect()
+    } else {
+        for record in message.authority {
+            match record.r_data {
+                RData::NS(ns) => {
+                    let ns_addrs = resolve_domain(&ns.display(), ROOT_SERVER.parse().unwrap());
+                    for addr in ns_addrs {
+                        let ip_addrs = resolve_domain(domain, addr);
+                        if !ip_addrs.is_empty() {
+                            return ip_addrs;
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        vec![]
     }
 }
 
 #[test]
 fn example_com() {
-    let ip_addr: Ipv4Addr = [93, 184, 216, 34].into();
-    let response = send_query("www.example.com", "8.8.8.8".parse().unwrap());
+    let ip_addr: IpAddr = [93, 184, 216, 34].into();
+    let response = resolve_domain("www.example.com", "8.8.8.8".parse().unwrap());
 
-    assert!(
-        response
-            .answer
-            .iter()
-            .any(|record| record.r_data == RData::A(ip_addr)),
-        "actual: {:?}\nexpected: {:?}",
-        pretty_print_response(&response),
-        ip_addr
-    );
+    assert!(response.contains(&ip_addr))
 }
 
 #[test]
 fn recurse_com() {
-    let ip_addr: Ipv4Addr = [54, 204, 238, 15].into();
-    let response = send_query("www.recurse.com", "8.8.8.8".parse().unwrap());
+    let ip_addr: IpAddr = [54, 204, 238, 15].into();
+    let response = resolve_domain("www.recurse.com", "8.8.8.8".parse().unwrap());
 
-    assert!(
-        response
-            .answer
-            .iter()
-            .any(|record| record.r_data == RData::A(ip_addr)),
-        "actual: {:?}\nexpected: {:?}",
-        pretty_print_response(&response),
-        ip_addr
-    );
+    assert!(response.contains(&ip_addr));
 }
 
 #[test]
 fn google_com() {
-    let ip_addr: Ipv4Addr = [18, 165, 201, 119].into();
-    let response = send_query("www.google.com", "198.41.0.4".parse().unwrap());
+    let ip_addr: IpAddr = [18, 165, 201, 119].into();
+    let response = resolve_domain("www.google.com", "198.41.0.4".parse().unwrap());
 
-    assert!(
-        response
-            .answer
-            .iter()
-            .any(|record| record.r_data == RData::A(ip_addr)),
-        "actual: {:?}\nexpected: {:?}",
-        pretty_print_response(&response),
-        ip_addr
-    );
+    assert!(response.contains(&ip_addr));
 }
