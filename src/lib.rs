@@ -188,7 +188,8 @@ impl Query {
     fn decode(decoder: &mut Decoder) -> Self {
         Self {
             qname: Domain::from_iter(decode_domain(decoder)),
-            qtype: QueryType::from(decoder.read_u16()),
+            qtype: QueryType::try_from(decoder.read_u16())
+                .unwrap_or_else(|err| panic!("{err:?}\n{decoder:?}")),
             qclass: QueryClass::from(decoder.read_u16()),
         }
     }
@@ -276,6 +277,7 @@ impl RData {
             (_, _) => unimplemented!(),
         }
     }
+    #[allow(dead_code)]
     fn display(&self) -> String {
         match self {
             Self::CNAME(domain) => domain.display(),
@@ -353,7 +355,13 @@ pub fn send_query(domain: &str, name_server: IpAddr) -> Message {
 
     socket
         .send_to(&query, SocketAddr::new(name_server, 53))
-        .expect("Sending DNS query to name server.");
+        .unwrap_or_else(|err| {
+            panic!(
+                "Failed to submit query: {:?} {:?}",
+                SocketAddr::new(name_server, 53),
+                err
+            )
+        });
 
     let mut buf = [0; 512];
     let (bytes_recv, _) = socket
@@ -369,8 +377,7 @@ pub fn send_query(domain: &str, name_server: IpAddr) -> Message {
     Message::decode(Decoder::new(&buffer))
 }
 
-const ROOT_SERVER: &str = "198.41.0.4";
-
+// TODO: Also use additional records.
 pub fn resolve_domain(domain: &str, name_server: IpAddr) -> Vec<IpAddr> {
     let message = send_query(domain, name_server);
 
@@ -379,21 +386,24 @@ pub fn resolve_domain(domain: &str, name_server: IpAddr) -> Vec<IpAddr> {
             .answer
             .iter()
             .filter_map(|record| match record.r_data {
-                RData::A(ip_addr) => Some(IpAddr::V4(ip_addr)),
+                RData::A(addr) => Some(IpAddr::V4(addr)),
                 _ => None,
             })
             .collect()
     } else {
         for record in message.authority {
             match record.r_data {
-                RData::NS(ns) => {
-                    let ns_addrs = resolve_domain(&ns.display(), ROOT_SERVER.parse().unwrap());
-                    for addr in ns_addrs {
-                        let ip_addrs = resolve_domain(domain, addr);
-                        if !ip_addrs.is_empty() {
-                            return ip_addrs;
-                        }
-                    }
+                RData::A(addr) => {
+                    return resolve_domain(domain, IpAddr::V4(addr));
+                }
+                _ => (),
+            }
+        }
+
+        for record in message.additional {
+            match record.r_data {
+                RData::A(addr) => {
+                    return resolve_domain(domain, IpAddr::V4(addr));
                 }
                 _ => (),
             }
@@ -421,7 +431,7 @@ fn recurse_com() {
 
 #[test]
 fn google_com() {
-    let ip_addr: IpAddr = [18, 165, 201, 119].into();
+    let ip_addr: IpAddr = [142, 250, 187, 196].into();
     let response = resolve_domain("www.google.com", "198.41.0.4".parse().unwrap());
 
     assert!(response.contains(&ip_addr));
