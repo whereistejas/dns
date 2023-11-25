@@ -377,7 +377,7 @@ pub fn send_query(domain: &str, name_server: IpAddr) -> Message {
     Message::decode(Decoder::new(&buffer))
 }
 
-// TODO: Also use additional records.
+// TODO: Use root nameservers.
 pub fn resolve_domain(domain: &str, name_server: IpAddr) -> Vec<IpAddr> {
     let message = send_query(domain, name_server);
 
