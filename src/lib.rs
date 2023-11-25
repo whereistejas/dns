@@ -1,4 +1,4 @@
-use std::net::{IpAddr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 
 use arrayvec::ArrayVec;
 
@@ -153,7 +153,10 @@ impl Label {
     #[allow(dead_code)]
     fn as_str(&self) -> &str {
         match self {
-            Label::Part(part) => std::str::from_utf8(part).unwrap(),
+            Label::Part(part) => {
+                let (_len, label) = part.split_first().unwrap();
+                std::str::from_utf8(label).unwrap()
+            }
             Label::Empty => "",
         }
     }
@@ -185,7 +188,8 @@ impl Query {
     fn decode(decoder: &mut Decoder) -> Self {
         Self {
             qname: Domain::from_iter(decode_domain(decoder)),
-            qtype: QueryType::from(decoder.read_u16()),
+            qtype: QueryType::try_from(decoder.read_u16())
+                .unwrap_or_else(|err| panic!("{err:?}\n{decoder:?}")),
             qclass: QueryClass::from(decoder.read_u16()),
         }
     }
@@ -229,7 +233,9 @@ pub enum RData {
     /// the canonical name for an alias
     CNAME(Domain),
     /// a host address
-    A([u8; 4]),
+    A(Ipv4Addr),
+    /// a host address
+    AAAA(Ipv6Addr),
     /// an authoritative name server
     NS(Domain),
 }
@@ -248,13 +254,36 @@ impl RData {
                     decoder.pop().unwrap(),
                     decoder.pop().unwrap(),
                 ];
-                Self::A(ip_addr)
+                Self::A(ip_addr.into())
+            }
+
+            (ResponseClass::IN, ResponseType::AAAA) => {
+                let ip_addr = [
+                    decoder.read_u16(),
+                    decoder.read_u16(),
+                    decoder.read_u16(),
+                    decoder.read_u16(),
+                    decoder.read_u16(),
+                    decoder.read_u16(),
+                    decoder.read_u16(),
+                    decoder.read_u16(),
+                ];
+                Self::AAAA(ip_addr.into())
             }
             (ResponseClass::IN, ResponseType::NS) => {
                 let domain = Domain::from_iter(decode_domain(decoder));
                 Self::NS(domain)
             }
             (_, _) => unimplemented!(),
+        }
+    }
+    #[allow(dead_code)]
+    fn display(&self) -> String {
+        match self {
+            Self::CNAME(domain) => domain.display(),
+            Self::A(ip_addr) => ip_addr.to_string(),
+            Self::AAAA(ip_addr) => ip_addr.to_string(),
+            Self::NS(domain) => domain.display(),
         }
     }
 }
@@ -326,7 +355,13 @@ pub fn send_query(domain: &str, name_server: IpAddr) -> Message {
 
     socket
         .send_to(&query, SocketAddr::new(name_server, 53))
-        .expect("Sending DNS query to name server.");
+        .unwrap_or_else(|err| {
+            panic!(
+                "Failed to submit query: {:?} {:?}",
+                SocketAddr::new(name_server, 53),
+                err
+            )
+        });
 
     let mut buf = [0; 512];
     let (bytes_recv, _) = socket
@@ -336,15 +371,68 @@ pub fn send_query(domain: &str, name_server: IpAddr) -> Message {
     let mut buffer = ArrayVec::<_, 512>::new();
     buffer.try_extend_from_slice(&buf[..bytes_recv]).unwrap();
 
+    // Check query IDs.
+    assert_eq!(query[..2], buffer[..2]);
+
     Message::decode(Decoder::new(&buffer))
+}
+
+// TODO: Also use additional records.
+pub fn resolve_domain(domain: &str, name_server: IpAddr) -> Vec<IpAddr> {
+    let message = send_query(domain, name_server);
+
+    if !message.answer.is_empty() {
+        message
+            .answer
+            .iter()
+            .filter_map(|record| match record.r_data {
+                RData::A(addr) => Some(IpAddr::V4(addr)),
+                _ => None,
+            })
+            .collect()
+    } else {
+        for record in message.authority {
+            match record.r_data {
+                RData::A(addr) => {
+                    return resolve_domain(domain, IpAddr::V4(addr));
+                }
+                _ => (),
+            }
+        }
+
+        for record in message.additional {
+            match record.r_data {
+                RData::A(addr) => {
+                    return resolve_domain(domain, IpAddr::V4(addr));
+                }
+                _ => (),
+            }
+        }
+
+        vec![]
+    }
 }
 
 #[test]
 fn example_com() {
-    let response = send_query("www.example.com", "8.8.8.8".parse().unwrap());
+    let ip_addr: IpAddr = [93, 184, 216, 34].into();
+    let response = resolve_domain("www.example.com", "8.8.8.8".parse().unwrap());
 
-    assert!(response
-        .answer
-        .iter()
-        .any(|record| record.r_data == RData::A([93, 184, 216, 34,])));
+    assert!(response.contains(&ip_addr))
+}
+
+#[test]
+fn recurse_com() {
+    let ip_addr: IpAddr = [54, 204, 238, 15].into();
+    let response = resolve_domain("www.recurse.com", "8.8.8.8".parse().unwrap());
+
+    assert!(response.contains(&ip_addr));
+}
+
+#[test]
+fn google_com() {
+    let ip_addr: IpAddr = [142, 250, 187, 196].into();
+    let response = resolve_domain("www.google.com", "198.41.0.4".parse().unwrap());
+
+    assert!(response.contains(&ip_addr));
 }

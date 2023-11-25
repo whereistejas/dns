@@ -34,6 +34,8 @@ pub enum ResponseType {
     MX = 15,
     ///  text strings
     TXT = 16,
+    /// AAAA records
+    AAAA = 28,
 }
 impl From<u16> for ResponseType {
     fn from(value: u16) -> Self {
@@ -54,7 +56,8 @@ impl From<u16> for ResponseType {
             14 => Self::MINFO,
             15 => Self::MX,
             16 => Self::TXT,
-            _ => panic!("Unsupported value for ResponseType: {value:?}"),
+            28 => Self::AAAA,
+            _ => panic!("Unsupported value: {value:?}"),
         }
     }
 }
@@ -124,30 +127,32 @@ pub enum QueryType {
     /// A request for all records
     All = 255,
 }
-impl From<u16> for QueryType {
-    fn from(value: u16) -> Self {
+impl TryFrom<u16> for QueryType {
+    type Error = String;
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
-            1 => Self::A,
-            2 => Self::NS,
-            3 => Self::MD,
-            4 => Self::MF,
-            5 => Self::CNAME,
-            6 => Self::SOA,
-            7 => Self::MB,
-            8 => Self::MG,
-            9 => Self::MR,
-            10 => Self::NULL,
-            11 => Self::WKS,
-            12 => Self::PTR,
-            13 => Self::HINFO,
-            14 => Self::MINFO,
-            15 => Self::MX,
-            16 => Self::TXT,
-            252 => Self::AXFR,
-            253 => Self::MAILB,
-            254 => Self::MAILA,
-            255 => Self::All,
-            _ => panic!("Unsupported value for QueryType: {value:?}"),
+            1 => Ok(Self::A),
+            2 => Ok(Self::NS),
+            3 => Ok(Self::MD),
+            4 => Ok(Self::MF),
+            5 => Ok(Self::CNAME),
+            6 => Ok(Self::SOA),
+            7 => Ok(Self::MB),
+            8 => Ok(Self::MG),
+            9 => Ok(Self::MR),
+            10 => Ok(Self::NULL),
+            11 => Ok(Self::WKS),
+            12 => Ok(Self::PTR),
+            13 => Ok(Self::HINFO),
+            14 => Ok(Self::MINFO),
+            15 => Ok(Self::MX),
+            16 => Ok(Self::TXT),
+            252 => Ok(Self::AXFR),
+            253 => Ok(Self::MAILB),
+            254 => Ok(Self::MAILA),
+            255 => Ok(Self::All),
+            _ => Err(format!("Unsupported value for QueryType: {value:?}")),
         }
     }
 }
