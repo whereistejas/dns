@@ -1,1 +1,5 @@
-A very simple DNS implementation.
+This is a very simple and minimal DNS resolver. My fingers had been itching for the longest time to write something low-level and this repository is me scratching that itch.
+
+This DNS resolver basically implements deserializing DNS responses defined by RFC 1035, handling message compression.
+
+This library exposes the `resolve_domain` method which returns a list of `IpAddr`s for the given domain.
